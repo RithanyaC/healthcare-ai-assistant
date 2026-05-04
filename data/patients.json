@@ -1,0 +1,18 @@
+[
+  {
+    "id": "p1",
+    "name": "Alice Smith",
+    "age": 34,
+    "gender": "Female",
+    "contact": "alice@example.com",
+    "medical_history": ["Asthma", "Hypertension"]
+  },
+  {
+    "id": "p2",
+    "name": "Bob Johnson",
+    "age": 45,
+    "gender": "Male",
+    "contact": "bob@example.com",
+    "medical_history": ["Type 2 Diabetes"]
+  }
+]
