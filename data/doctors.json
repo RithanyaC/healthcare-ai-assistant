@@ -1,0 +1,14 @@
+[
+  {
+    "id": "d1",
+    "name": "Dr. Sarah Connor",
+    "specialization": "General Practice",
+    "available_slots": ["2026-05-05T09:00:00Z", "2026-05-05T10:00:00Z"]
+  },
+  {
+    "id": "d2",
+    "name": "Dr. House",
+    "specialization": "Cardiology",
+    "available_slots": ["2026-05-06T14:00:00Z", "2026-05-06T15:00:00Z"]
+  }
+]

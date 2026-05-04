@@ -1,0 +1,36 @@
+{
+  "tools": [
+    {
+      "name": "symptom_check",
+      "description": "Assess patient symptoms and determine risk level."
+    },
+    {
+      "name": "schedule_appointment",
+      "description": "Find and book an appointment with a specialist."
+    },
+    {
+      "name": "patient_summary",
+      "description": "Get medical summary and history."
+    },
+    {
+      "name": "followup_reminder",
+      "description": "Create a follow-up reminder for a patient."
+    },
+    {
+      "name": "predict_waittime",
+      "description": "Predict current hospital wait time."
+    },
+    {
+      "name": "flag_urgent",
+      "description": "Flag a patient as urgent."
+    },
+    {
+      "name": "get_analytics",
+      "description": "Retrieve system analytics."
+    },
+    {
+      "name": "update_ehr_notes",
+      "description": "Update patient Electronic Health Records."
+    }
+  ]
+}

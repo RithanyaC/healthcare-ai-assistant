@@ -1,0 +1,30 @@
+{
+  "type": "object",
+  "properties": {
+    "protocol": {
+      "type": "string",
+      "const": "COIN"
+    },
+    "from": {
+      "type": "string",
+      "description": "Agent sending the message"
+    },
+    "to": {
+      "type": "string",
+      "description": "Agent receiving the message"
+    },
+    "action": {
+      "type": "string",
+      "description": "Action to be performed"
+    },
+    "session_id": {
+      "type": "string",
+      "description": "Unique session identifier"
+    },
+    "payload": {
+      "type": "object",
+      "description": "Action-specific payload"
+    }
+  },
+  "required": ["protocol", "from", "to", "action", "session_id", "payload"]
+}
