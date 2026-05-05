@@ -12,23 +12,44 @@ def error_response(code, message): return {"success": False, "data": None, "erro
 
 class SymptomRequest(BaseModel):
     symptoms: str
-
 @app.post("/tools/symptom_check")
 def symptom_check(req: SymptomRequest):
     symptoms = req.symptoms.lower()
-    if "chest pain" in symptoms or "severe" in symptoms or "breath" in symptoms:
+
+    # 🔴 HIGH RISK
+    if any(word in symptoms for word in ["chest pain", "shortness of breath", "breathing difficulty", "heart pain"]):
         risk_level = "High"
-        specialist = "Cardiology"
-        assessment = "Potential critical condition. Seek emergency care or book an urgent appointment."
-    elif "headache" in symptoms or "fever" in symptoms:
+        specialist = "Cardiology / Emergency Care"
+        assessment = "Symptoms may indicate a serious heart or lung condition. Seek immediate medical attention."
+
+    elif any(word in symptoms for word in ["stroke", "paralysis", "seizure", "unconscious"]):
+        risk_level = "High"
+        specialist = "Neurology / Emergency Care"
+        assessment = "Possible neurological emergency. Immediate hospital visit is required."
+
+    # 🟡 MEDIUM RISK
+    elif any(word in symptoms for word in ["high fever", "persistent cough", "infection", "vomiting", "diarrhea"]):
+        risk_level = "Medium"
+        specialist = "General Physician"
+        assessment = "Symptoms suggest a possible infection. Consult a doctor within 24 hours."
+
+    elif any(word in symptoms for word in ["stomach pain", "abdominal pain", "indigestion", "gas"]):
+        risk_level = "Medium"
+        specialist = "Gastroenterologist"
+        assessment = "Digestive issue suspected. Avoid heavy food and consult a specialist if it continues."
+
+    # 🟢 LOW RISK
+    elif any(word in symptoms for word in ["headache", "cold", "mild fever", "fatigue", "tired"]):
         risk_level = "Low"
-        specialist = "General Practice"
-        assessment = "Mild symptoms. Rest and hydrate. Book a general checkup if symptoms persist."
+        specialist = "General Physician"
+        assessment = "Likely a minor illness. Rest, hydrate, and monitor symptoms."
+
+    # 🟣 DEFAULT
     else:
         risk_level = "Medium"
-        specialist = "General Practice"
-        assessment = "Moderate symptoms detected. A consultation is recommended."
-        
+        specialist = "General Physician"
+        assessment = "Symptoms are unclear. A general consultation is recommended for proper diagnosis."
+
     return success_response({
         "assessment": assessment,
         "risk_level": risk_level,
@@ -45,11 +66,11 @@ def schedule_appointment(req: ScheduleRequest):
     slots_resp = requests.get(f"{BACKEND_URL}/api/slots?specialization={req.specialization}").json()
     if not slots_resp.get("success"):
         return error_response("SLOT_FETCH_FAILED", "Failed to fetch slots")
-        
+
     slots = slots_resp["data"]
     if not slots:
         return error_response("NO_SLOTS", "No slots available for this specialization")
-        
+
     # Book the first available slot
     slot_to_book = slots[0]
     book_resp = requests.post(f"{BACKEND_URL}/api/appointments", json={
@@ -57,10 +78,10 @@ def schedule_appointment(req: ScheduleRequest):
         "doctor_id": slot_to_book["doctor_id"],
         "slot": slot_to_book["slot"]
     }).json()
-    
+
     if not book_resp.get("success"):
         return error_response("BOOKING_ERROR", book_resp.get("error", {}).get("message", "Failed to book"))
-        
+
     return success_response({
         "appointment": book_resp["data"]
     })
