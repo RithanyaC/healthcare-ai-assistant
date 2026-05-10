@@ -1,134 +1,189 @@
+"""
+Healthcare AI Assistant - MCP (Multi-agent Convergence Platform) Server
+Version 2.0: Agent-based architecture with modular tools
+Tool orchestration layer for AI-driven healthcare consultations
+"""
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-import requests
-import json
+from typing import Optional, Dict, Any
+import logging
 
-app = FastAPI()
+from app.config.settings import settings
+from app.tools.registry import tool_registry
+from app.tools.healthcare_tools import register_tools
+from app.agents.base import agent_router
+from app.agents.healthcare_agents import register_agents
 
-BACKEND_URL = "http://localhost:8000"
+# Setup logging
+logging.basicConfig(level=settings.LOG_LEVEL)
+logger = logging.getLogger(__name__)
 
-def success_response(data): return {"success": True, "data": data, "error": None}
-def error_response(code, message): return {"success": False, "data": None, "error": {"code": code, "message": message}}
+# Create FastAPI app
+app = FastAPI(
+    title="Healthcare AI MCP Server",
+    description="Agent orchestration platform for healthcare AI",
+    version="2.0.0"
+)
 
-class SymptomRequest(BaseModel):
-    symptoms: str
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Request/Response models
+class ChatRequest(BaseModel):
+    message: str
+    patient_id: Optional[str] = "p1"
+    context: Optional[str] = "healthcare_consultation"
+
+# Initialize on startup
+@app.on_event("startup")
+async def startup():
+    """Initialize tools and agents on startup"""
+    logger.info("Starting MCP Server v2.0")
+
+    # Register all tools
+    register_tools(tool_registry)
+    logger.info(f"Registered {len(tool_registry.tools)} tools")
+
+    # Register all agents
+    register_agents(agent_router)
+    logger.info(f"Registered agents: Triage, Scheduling, Summary, Followup")
+
+# Routes - Legacy tool endpoints (backward compatibility)
 @app.post("/tools/symptom_check")
-def symptom_check(req: SymptomRequest):
-    symptoms = req.symptoms.lower()
-
-    # 🔴 HIGH RISK
-    if any(word in symptoms for word in ["chest pain", "shortness of breath", "breathing difficulty", "heart pain"]):
-        risk_level = "High"
-        specialist = "Cardiology / Emergency Care"
-        assessment = "Symptoms may indicate a serious heart or lung condition. Seek immediate medical attention."
-
-    elif any(word in symptoms for word in ["stroke", "paralysis", "seizure", "unconscious"]):
-        risk_level = "High"
-        specialist = "Neurology / Emergency Care"
-        assessment = "Possible neurological emergency. Immediate hospital visit is required."
-
-    # 🟡 MEDIUM RISK
-    elif any(word in symptoms for word in ["high fever", "persistent cough", "infection", "vomiting", "diarrhea"]):
-        risk_level = "Medium"
-        specialist = "General Physician"
-        assessment = "Symptoms suggest a possible infection. Consult a doctor within 24 hours."
-
-    elif any(word in symptoms for word in ["stomach pain", "abdominal pain", "indigestion", "gas"]):
-        risk_level = "Medium"
-        specialist = "Gastroenterologist"
-        assessment = "Digestive issue suspected. Avoid heavy food and consult a specialist if it continues."
-
-    # 🟢 LOW RISK
-    elif any(word in symptoms for word in ["headache", "cold", "mild fever", "fatigue", "tired"]):
-        risk_level = "Low"
-        specialist = "General Physician"
-        assessment = "Likely a minor illness. Rest, hydrate, and monitor symptoms."
-
-    # 🟣 DEFAULT
-    else:
-        risk_level = "Medium"
-        specialist = "General Physician"
-        assessment = "Symptoms are unclear. A general consultation is recommended for proper diagnosis."
-
-    return success_response({
-        "assessment": assessment,
-        "risk_level": risk_level,
-        "recommended_specialist": specialist
-    })
-
-class ScheduleRequest(BaseModel):
-    patient_id: str
-    specialization: str
+async def symptom_check(request: ChatRequest):
+    """Legacy endpoint for symptom checking"""
+    return await tool_registry.execute_tool("symptom_check", symptoms=request.message)
 
 @app.post("/tools/schedule_appointment")
-def schedule_appointment(req: ScheduleRequest):
-    # Call backend to find slots
-    slots_resp = requests.get(f"{BACKEND_URL}/api/slots?specialization={req.specialization}").json()
-    if not slots_resp.get("success"):
-        return error_response("SLOT_FETCH_FAILED", "Failed to fetch slots")
-
-    slots = slots_resp["data"]
-    if not slots:
-        return error_response("NO_SLOTS", "No slots available for this specialization")
-
-    # Book the first available slot
-    slot_to_book = slots[0]
-    book_resp = requests.post(f"{BACKEND_URL}/api/appointments", json={
-        "patient_id": req.patient_id,
-        "doctor_id": slot_to_book["doctor_id"],
-        "slot": slot_to_book["slot"]
-    }).json()
-
-    if not book_resp.get("success"):
-        return error_response("BOOKING_ERROR", book_resp.get("error", {}).get("message", "Failed to book"))
-
-    return success_response({
-        "appointment": book_resp["data"]
-    })
-
-class PatientSummaryRequest(BaseModel):
-    patient_id: str
+async def schedule_appointment(request: ChatRequest):
+    """Legacy endpoint for scheduling"""
+    return await tool_registry.execute_tool(
+        "schedule_appointment",
+        patient_id=request.patient_id,
+        specialization="General Physician"
+    )
 
 @app.post("/tools/patient_summary")
-def patient_summary(req: PatientSummaryRequest):
-    resp = requests.get(f"{BACKEND_URL}/api/patients/{req.patient_id}/summary").json()
-    if resp.get("success"):
-        return success_response({"summary": resp["data"]})
-    return error_response("SUMMARY_FAILED", "Failed to get patient summary")
-
-class FollowupRequest(BaseModel):
-    patient_id: str
-    notes: str
+async def patient_summary(request: ChatRequest):
+    """Legacy endpoint for patient summary"""
+    return await tool_registry.execute_tool("patient_summary", patient_id=request.patient_id)
 
 @app.post("/tools/followup_reminder")
-def followup_reminder(req: FollowupRequest):
-    resp = requests.post(f"{BACKEND_URL}/api/followups", json={"patient_id": req.patient_id, "notes": req.notes}).json()
-    if resp.get("success"):
-        return success_response({"followup": resp["data"]})
-    return error_response("FOLLOWUP_FAILED", "Failed to create followup")
+async def followup_reminder(request: ChatRequest):
+    """Legacy endpoint for follow-ups"""
+    return await tool_registry.execute_tool(
+        "followup_reminder",
+        patient_id=request.patient_id,
+        notes=request.message
+    )
+# Backward compatibility endpoint for frontend
+@app.post("/chat")
+async def chat(request: ChatRequest):
+    """
+    Compatibility chat endpoint.
+    Redirects frontend chat requests to orchestration layer.
+    """
 
-@app.post("/tools/predict_waittime")
-def predict_waittime():
-    return success_response({"waittime_minutes": 15})
+    result = await orchestrate(request)
 
-class UrgentRequest(BaseModel):
-    patient_id: str
+    return {
+        "success": result.get("success", True),
+        "response": result.get("response", ""),
+        "agent": result.get("agent", ""),
+        "action": result.get("action", ""),
+        "data": result.get("data", {}),
+        "logs": result.get("logs", [])
+    }
 
-@app.post("/tools/flag_urgent")
-def flag_urgent(req: UrgentRequest):
-    return success_response({"status": "Patient flagged as urgent", "patient_id": req.patient_id})
+# New agent-based orchestration endpoint
+@app.post("/orchestrate")
+async def orchestrate(request: ChatRequest):
+    """
+    Main orchestration endpoint.
+    Routes message to appropriate agent based on intent.
+    Maintains backward compatibility with original API.
+    """
+    try:
+        context = {
+            "patient_id": request.patient_id,
+            "context": request.context
+        }
 
-@app.get("/tools/get_analytics")
-def get_analytics():
-    return success_response({"total_appointments": 10, "average_wait_time": 15})
+        result = await agent_router.route_message(request.message, context)
 
-class EhrRequest(BaseModel):
-    patient_id: str
-    notes: str
+        return {
+            "success": True,
+            "response": result.get("response", ""),
+            "agent": result.get("agent", "unknown"),
+            "action": result.get("action", ""),
+            "data": result.get("data", {}),
+            "logs": result.get("logs", [])
+        }
+    except Exception as e:
+        logger.error(f"Orchestration error: {e}")
+        return {
+            "success": False,
+            "error": str(e),
+            "response": "An error occurred while processing your request."
+        }
 
-@app.post("/tools/update_ehr_notes")
-def update_ehr_notes(req: EhrRequest):
-    resp = requests.post(f"{BACKEND_URL}/api/followups", json={"patient_id": req.patient_id, "notes": req.notes}).json()
-    if resp.get("success"):
-        return success_response({"record": resp["data"]})
-    return error_response("EHR_UPDATE_FAILED", "Failed to update EHR notes")
+# List available tools
+@app.get("/tools")
+async def list_tools():
+    """List all available tools and their descriptions"""
+    return {
+        "success": True,
+        "tools": tool_registry.list_tools(),
+        "count": len(tool_registry.tools)
+    }
+
+# Health check
+@app.get("/health")
+async def health_check():
+    """Health check endpoint"""
+    return {
+        "success": True,
+        "status": "healthy",
+        "service": "MCP Server",
+        "version": "2.0.0",
+        "tools": len(tool_registry.tools),
+        "agents": len(agent_router.agents)
+    }
+
+# Root endpoint
+@app.get("/")
+async def root():
+    """Root endpoint with service information"""
+    return {
+        "name": "Healthcare AI MCP Server",
+        "version": "2.0.0",
+        "description": "Agent orchestration platform for healthcare AI",
+        "status": "running",
+        "endpoints": {
+            "orchestrate": "/orchestrate (POST) - Main agent routing",
+            "tools": "/tools (GET) - List available tools",
+            "legacy_tools": {
+                "symptom_check": "/tools/symptom_check (POST)",
+                "schedule": "/tools/schedule_appointment (POST)",
+                "summary": "/tools/patient_summary (POST)",
+                "followup": "/tools/followup_reminder (POST)"
+            },
+            "health": "/health (GET)"
+        }
+    }
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(
+        "server:app",
+        host=settings.SERVER_HOST,
+        port=settings.SERVER_PORT,
+        reload=settings.DEBUG
+    )
